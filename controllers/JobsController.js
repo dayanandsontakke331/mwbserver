@@ -1,18 +1,37 @@
 
+const JobApplications = require('../models/JobApplications');
 const Jobs = require('../models/Jobs');
 
 exports.postJob = async (req, res) => {
     try {
-        console.log(req.user)
+
         req.body.postedBy = req.user._id;
-        const job = new Jobs(req.body);
-        await job.save();
-        return res.status(201).json({ message: "Job posted successfully", success: true, data: job });
+
+        let job;
+
+        if (req.body._id) {
+            const existingJob = await Jobs.findOne({ _id: req.body._id });
+
+            if (!existingJob) {
+                return res.status(404).json({ message: "Job not found", success: false });
+            }
+
+            Object.assign(existingJob, req.body);
+            job = await existingJob.save();
+
+            return res.status(200).json({ message: "Job updated successfully", success: true, data: job });
+        } else {
+            job = new Jobs(req.body);
+            await job.save();
+
+            return res.status(201).json({ message: "Job posted successfully", success: true, data: job });
+        }
+
     } catch (error) {
-        console.log("error creating job", error);
-        return res.status(400).json({ message: "Error creating job", success: false, data: null });
+        console.log("Error creating/updating job", error);
+        return res.status(400).json({ message: "Error creating/updating job", success: false });
     }
-}
+};
 
 exports.getAllJobs = async (req, res) => {
     try {
@@ -106,46 +125,82 @@ exports.getJobs = async (req, res) => {
 
         const pageNum = parseInt(page) || 1;
         const limitNum = parseInt(limit) || 5;
+        const userId = req.user._id;
+
+        const jobsApplied = await JobApplications.find({ userId: userId }).select("jobId -_id");
+
+        const appliedJobs = jobsApplied.map((job) => job.jobId);
 
         const stages = [];
 
+        const matchstage = {
+            $match: {
+                _id: { $nin: appliedJobs }
+            }
+        };
+
         if (search) {
-            stages.push({
-                $match: {
-                    $or: [
-                        { title: { $regex: search, $options: "i" } },
-                        { companyName: { $regex: search, $options: "i" } },
-                        { description: { $regex: search, $options: "i" } },
-                    ],
-                },
-            });
+            matchstage.$match.$or = [
+                { title: { $regex: search, $options: "i" } },
+                { companyName: { $regex: search, $options: "i" } },
+                { description: { $regex: search, $options: "i" } }
+            ]
         }
 
+        stages.push(matchstage);
         stages.push({ $sort: { createdAt: -1 } });
         stages.push({ $skip: (pageNum - 1) * limitNum });
         stages.push({ $limit: limitNum });
 
         const jobs = await Jobs.aggregate(stages);
 
-        const totalCount = await Jobs.countDocuments(
-            search
-                ? {
-                    $or: [
-                        { title: { $regex: search, $options: "i" } },
-                        { companyName: { $regex: search, $options: "i" } },
-                        { description: { $regex: search, $options: "i" } },
-                    ],
-                }
-                : {}
-        );
+        const count = search
+            ? {
+                $or: [
+                    { title: { $regex: search, $options: "i" } },
+                    { companyName: { $regex: search, $options: "i" } },
+                    { description: { $regex: search, $options: "i" } }
+                ],
+                _id: { $nin: appliedJobs }
+            }
+            : { _id: { $nin: appliedJobs } };
+
+        const totalCount = await Jobs.countDocuments(count);
 
         return res.status(200).json({
             success: true,
             message: "Jobs fetched successfully",
             data: jobs,
-            totalCount,
+            totalCount
         });
     } catch (err) {
         return res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+exports.getJob = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const job = await Jobs.findOne({ _id: id });
+
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                message: 'Job not found',
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Job fetched successfully',
+            data: job,
+        });
+    } catch (error) {
+        console.error('Error fetching job:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Something went wrong while fetching job details',
+        });
     }
 };

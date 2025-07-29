@@ -6,7 +6,6 @@ const jobApplications = require('../models/JobApplications')
 const BookMark = require('../models/BookMark');
 const moment = require('moment');
 
-
 exports.jobSeekers = async (req, res) => {
   try {
     const {

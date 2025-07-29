@@ -59,12 +59,6 @@ exports.jobApplications = async (req, res) => {
             pipeline[0]["$match"].status = status;
         }
 
-        // Restrict to users own posts if not admin
-        if (req.user.role !== 'admin') {
-            pipeline[0]["$match"].postedBy = req.user._id;
-        }
-
-        // Lookup user details
         pipeline.push(
             {
                 $lookup: {
@@ -82,7 +76,6 @@ exports.jobApplications = async (req, res) => {
             }
         );
 
-        // Lookup job details
         pipeline.push(
             {
                 $lookup: {
@@ -100,7 +93,14 @@ exports.jobApplications = async (req, res) => {
             }
         );
 
-        // Lookup job preferences
+        if (req.user.role !== 'admin') {
+            pipeline.push({
+                $match: {
+                    "job.postedBy": req.user._id
+                }
+            });
+        }
+
         pipeline.push(
             {
                 $lookup: {
@@ -118,11 +118,8 @@ exports.jobApplications = async (req, res) => {
             }
         );
 
-        // Sort and paginate
         pipeline.push(
-            {
-                $sort: { createdAt: -1 }
-            },
+            { $sort: { createdAt: -1 } },
             {
                 $facet: {
                     data: [
@@ -152,6 +149,7 @@ exports.jobApplications = async (req, res) => {
         return res.status(500).json({ message: "Cannot get applications", success: false, data: null });
     }
 };
+
 
 
 exports.myApplications = async (req, res) => {

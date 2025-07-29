@@ -32,6 +32,8 @@ endpoints.post('/jobs/post', verifyToken, JobsController.postJob);
 endpoints.post('/jobs/update', verifyToken, JobsController.updateJob);
 endpoints.get('/jobs/list', verifyToken, JobsController.getJobs);
 endpoints.get('/getAllJobs', verifyToken, JobsController.getAllJobs);
+endpoints.get('/getJob/:id', verifyToken, JobsController.getJob);
+
 
 endpoints.patch('/jobs/updateState', verifyToken, JobsController.updateJobState);
 

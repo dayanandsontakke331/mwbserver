@@ -42,7 +42,7 @@ exports.getJobPreferencesByUser = async (req, res) => {
         const preferences = await JobPreferences.findOne({ userId });
 
         if (!preferences) {
-            return res.status(404).json({ success: false, message: "No preferences found" });
+            return res.status(200).json({ success: false, message: "No preferences found" });
         }
 
         console.log("preferences", preferences)
@@ -55,8 +55,12 @@ exports.getJobPreferencesByUser = async (req, res) => {
 };
 
 exports.uploadResume = async (req, res) => {
-    const file_path = req.file_path;
-    const userId = req.body.id
-    const preferences = await JobPreferences.findOneAndUpdate({ userId }, { $set: { resume: file_path } }, { new: true });
-    return res.json({ success: true, message: "Resume uploaded", data: preferences });
+    try {
+        const file_path = req.file_path;
+        const userId = req.body.id
+        const preferences = await JobPreferences.findOneAndUpdate({ userId }, { $set: { resume: file_path } }, { new: true });
+        return res.status(200).json({ success: true, message: "Resume uploaded", data: preferences });
+    } catch (error) {
+        return res.json({ success: false, message: "Error occured while uploading resume", data: null });
+    }
 }
